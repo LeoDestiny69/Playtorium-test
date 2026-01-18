@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Playtorium Discount Module
 
-## Getting Started
+ระบบคำนวณส่วนลดสำหรับตะกร้าสินค้า รองรับแคมเปญส่วนลดหลายประเภท
 
-First, run the development server:
+## 🚀 วิธีรันโปรเจกต์
+
+### ติดตั้ง Dependencies
+
+```bash
+npm install
+```
+
+### รัน Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิด [http://localhost:3000](http://localhost:3000) ในเบราว์เซอร์
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### รัน Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🏗️ โครงสร้างระบบ
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/
+├── components/          # React Components
+│   ├── AddItemForm.tsx     # ฟอร์มเพิ่มสินค้า
+│   ├── CartItems.tsx       # แสดงรายการสินค้าในตะกร้า
+│   ├── CartSummary.tsx     # สรุปยอดและส่วนลด
+│   └── DiscountForm.tsx    # ฟอร์มใส่ส่วนลด
+├── context/
+│   └── CartContext.tsx     # State management (React Context)
+├── lib/
+│   └── discountCalculator.ts  # Logic คำนวณส่วนลด (Core)
+├── types/
+│   └── index.ts            # TypeScript Types
+├── page.tsx                # หน้าหลัก
+└── layout.tsx              # Layout wrapper
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Core Logic: `discountCalculator.ts`
 
-## Deploy on Vercel
+ไฟล์หลักที่คำนวณส่วนลดทั้งหมด:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Function | หน้าที่ |
+|----------|--------|
+| `calculateCart()` | ฟังก์ชันหลัก รับ items + campaigns แล้วคืนผลลัพธ์ |
+| `calculateFixedAmountDiscount()` | คำนวณ Coupon แบบลดเงินตรง |
+| `calculatePercentageDiscount()` | คำนวณ Coupon แบบเปอร์เซ็นต์ |
+| `calculateCategoryDiscount()` | คำนวณส่วนลดตามหมวดหมู่สินค้า |
+| `calculatePointsDiscount()` | คำนวณส่วนลดจาก Points (สูงสุด 20%) |
+| `calculateSeasonalDiscount()` | คำนวณส่วนลดตามยอดซื้อ (ทุก X บาท ลด Y บาท) |
+| `sortCampaignsByCategory()` | เรียงลำดับแคมเปญตามหมวด |
+| `filterOneCampaignPerCategory()` | กรองให้เหลือ 1 แคมเปญต่อหมวด |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 📋 ประเภทส่วนลดที่รองรับ
+
+### 1. Coupon (เลือกใช้ได้ 1 อย่าง)
+- **Fixed Amount** - ลดเงินตรง เช่น ลด 50 บาท
+- **Percentage** - ลดเปอร์เซ็นต์ เช่น ลด 10%
+
+### 2. On Top (เลือกใช้ได้ 1 อย่าง)
+- **Category Discount** - ลดเฉพาะหมวดหมู่ เช่น Clothing ลด 15%
+- **Points** - ใช้แต้มแลกส่วนลด (1 แต้ม = 1 บาท, สูงสุด 20% ของยอด)
+
+### 3. Seasonal (เลือกใช้ได้ 1 อย่าง)
+- **Special Campaign** - ทุก X บาท ลด Y บาท เช่น ทุก 300 บาท ลด 40 บาท
+
+### ลำดับการคำนวณ
+```
+ราคาสินค้า → Coupon → On Top → Seasonal → ราคาสุดท้าย
+```
+
+---
+
+## 💡 สมมติฐานที่ใช้
+
+1. **หมวดหมู่สินค้ามี 3 ประเภท**: Clothing, Accessories, Electronics
+2. **ใช้แคมเปญได้ 1 อย่างต่อหมวด**: ถ้าเพิ่ม Coupon ใหม่จะแทนที่อันเดิม
+3. **ราคาสุดท้ายไม่ติดลบ**: ถ้าส่วนลดมากกว่าราคา จะได้ราคา 0 บาท
+4. **Points ลดได้สูงสุด 20%**: ถ้าใช้ 100 แต้ม แต่ 20% = 50 บาท จะลดได้แค่ 50 บาท
+5. **ส่วนลดคำนวณจากยอดหลังหักส่วนลดก่อนหน้า**: 
+   - Coupon คำนวณจาก subtotal
+   - On Top คำนวณจากยอดหลังหัก Coupon
+   - Seasonal คำนวณจากยอดหลังหัก Coupon + On Top
+
+---
+
+## ⚠️ ข้อจำกัด
+
+1. **ไม่มี Backend**: ข้อมูลเก็บใน Memory ผ่าน React Context (refresh แล้วหาย)
+2. **ไม่มีระบบ Authentication**: ไม่มี User login
+3. **ไม่มีการบันทึก Points จริง**: Points ใส่ได้เลยโดยไม่ต้องมียอดสะสม
+
+---
+
+## 🔮 สิ่งที่อยากพัฒนาต่อ
+
+1. **Backend API**: ใช้ Next.js API Routes หรือแยก Backend
+2. **Database**: เก็บข้อมูลสินค้า, ประวัติการสั่งซื้อ
+3. **Unit Tests**: เพิ่ม Test Coverage สำหรับ discount logic
+4. **Multiple Coupons**: รองรับใช้หลาย Coupon พร้อมกัน (ถ้าโจทย์ต้องการ)
+5. **Discount Code**: ใส่โค้ดส่วนลดแทนการเลือกจาก dropdown
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **State Management**: React Context API
+
